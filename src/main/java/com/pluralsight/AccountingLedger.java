@@ -199,6 +199,7 @@ public class AccountingLedger {
                 case 1:
                     start = today.withDayOfMonth(1);
                     System.out.println("From" + start + "to" + end);
+                    displayEntries();
                     break;
 
                 case 2:
@@ -206,15 +207,18 @@ public class AccountingLedger {
                     start = previous.atDay(1);
                     end = previous.atEndOfMonth();
                     System.out.println("From " + start + "to" + end);
+                    displayEntries();
                     break;
                 case 3:
                     start = today.withDayOfYear(1);
                     System.out.println("From " + start + "to" + end);
+                    displayEntries();
                     break;
                 case 4:
                     start = today.minusYears(1).withDayOfYear(1);
                     end = today.minusYears(1).withDayOfYear(today.minusYears(1).lengthOfYear());
                     System.out.println("From " + start + "to" + end);
+                    displayEntries();
                     break;
                 case 5:
                     searchByVendor();
