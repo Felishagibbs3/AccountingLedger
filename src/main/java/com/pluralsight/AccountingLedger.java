@@ -250,8 +250,9 @@ public class AccountingLedger {
                 }
             }
         } catch (IOException e) {
+            System.out.println("Error reading file.");
         }
-        System.out.println("Error reading file.");
+
     }
 
 
