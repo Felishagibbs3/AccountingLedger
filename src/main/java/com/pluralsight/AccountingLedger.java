@@ -6,6 +6,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 
 public class AccountingLedger {
 
@@ -15,11 +18,14 @@ public class AccountingLedger {
     static LocalDateTime timeNow = LocalDateTime.now();
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws FileNotFoundException {
         boolean running = true;
 
         while (running) {
             System.out.println("HOME PAGE");
+            System.out.println("\n-------------------------------");
+            System.out.printf("CURRENT BALANCE: $%.2f%n",calculateBalance(getTransactions()));
+            System.out.println("\n-------------------------------");
             System.out.println("What awould you like to do?");
             System.out.println("1. Add Deposit");
             System.out.println("2. Make Payment");
@@ -77,6 +83,7 @@ public class AccountingLedger {
             System.out.println("Error saving transactions");
         }
     }
+
     private static void displayDebitEntries() {
 
         try {
@@ -97,7 +104,8 @@ public class AccountingLedger {
             System.out.println("Error loading transactions");
         }
     }
-    private static void showLedger() {
+
+    private static void showLedger() throws FileNotFoundException {
         boolean ledgerRun = true;
         while (ledgerRun) {
             System.out.println("Ledger Menu");
@@ -125,6 +133,7 @@ public class AccountingLedger {
                 case "5":
                     ledgerRun = false;
                     break;
+
                 default:
                     System.out.println("Invalid Choice");
             }
@@ -144,9 +153,9 @@ public class AccountingLedger {
             String line;
             while ((line = bufReader.readLine()) != null) {
                 //split the line into the individual product parts
-                String[] transactionParts = line.split("\\|");
+                String[] transactionParts = line.split("\\| ");
                 //generate a new product using the correct data types for the product attributes
-                Transaction newTransaction = new Transaction(LocalDate.parse(transactionParts[0]),LocalTime.parse(transactionParts[1]),transactionParts[2],transactionParts[3],Double.parseDouble(transactionParts[4]));
+                Transaction newTransaction = new Transaction(LocalDate.parse(transactionParts[0]), LocalTime.parse(transactionParts[1]), transactionParts[2], transactionParts[3], Double.parseDouble(transactionParts[4]));
                 //add the product to our inventory ArrayList
                 transactions.add(newTransaction);
             }
@@ -154,8 +163,6 @@ public class AccountingLedger {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
-
 
 
         //return the inventory
@@ -178,7 +185,20 @@ public class AccountingLedger {
         }
     }
 
-    private static void showReports() {
+    public static void displayList(List<Transaction> transactions) {
+        try {
+            System.out.println("All Entries");
+            transactions.forEach(System.out::println);
+
+
+        } catch (
+                Exception e) {
+            System.out.println("Error displaying transactions");
+        }
+
+    }
+
+    private static void showReports() throws FileNotFoundException {
         boolean reportsRunning = true;
         while (reportsRunning) {
             System.out.println("View Reports");
@@ -188,18 +208,20 @@ public class AccountingLedger {
             System.out.println("3. Year to Date");
             System.out.println("4. Previous Year");
             System.out.println("5. Search by Vendor");
-            System.out.println("6. Go back");
+            System.out.println("6. Custom Search");
+            System.out.println("7. Go Home");
+
             int choice = scanner.nextInt();
             LocalDate today = LocalDate.now();
             LocalDate start;
             LocalDate end = today;
             List<AccountingLedger> filter = new ArrayList<>();
-
+            scanner.nextLine();
             switch (choice) {
                 case 1:
                     start = today.withDayOfMonth(1);
                     System.out.println("From" + start + "to" + end);
-                    displayEntries();
+                    displayList(getByDates(start, end));
                     break;
 
                 case 2:
@@ -222,22 +244,102 @@ public class AccountingLedger {
                     break;
                 case 5:
                     searchByVendor();
-                    ;
 
 
                     break;
-
-                case 6:
+                case 6: {
+                    System.out.print("Start Date (yyyy-MM-dd) or Enter to skip: ");
+                    String startDate = scanner.nextLine().trim();
+                    System.out.print("End Date (yyyy-MM-dd) or Enter to skip: ");
+                    String endDate = scanner.nextLine().trim();
+                    System.out.print("Description (partial match OK) or Enter to skip: ");
+                    String desc = scanner.nextLine().trim();
+                    System.out.print("Vendor (partial match OK) or Enter to skip: ");
+                    String vendor = scanner.nextLine().trim();
+                    System.out.print("Amount (exact match) or Enter to skip: ");
+                    String amount = scanner.nextLine().trim();
+                    printCustomSearch(getTransactions(), startDate, endDate, desc, vendor, amount);
+                }
+                case 7:
                     System.out.println("Returning to home");
                     reportsRunning = false;
                     return;
             }
-
-
         }
     }
 
+    public static void printCustomSearch(List<Transaction> list, String startDateStr, String endDateStr, String description, String vendor, String amountStr) {
+        Stream<Transaction> stream = list.stream();
+        if (!startDateStr.isBlank()) {
+            try {
+                LocalDate startDate = LocalDate.parse(startDateStr);
+                stream = stream.filter(t -> !t.getDate().isBefore(startDate));
+            } catch (Exception e) {
+                System.out.println("Invalid start date format.");
+            }
+        }
+        if (!endDateStr.isBlank()) {
+            try {
+                LocalDate endDate = LocalDate.parse(endDateStr);
+                stream = stream.filter(t -> !t.getDate().isAfter(endDate));
+            } catch (Exception e) {
+                System.out.println("Invalid end date format.");
+            }
+        }
+        if (!description.isBlank()) {
+            stream = stream.filter(t -> t.getDescription().toLowerCase().contains(description.toLowerCase()));
+        }
+        if (!vendor.isBlank()) {
+            stream = stream.filter(t -> t.getVendor().toLowerCase().contains(vendor.toLowerCase()));
+        }
+        if (!amountStr.isBlank()) {
+            try {
+                double amount = Double.parseDouble(amountStr);
+                stream = stream.filter(t -> t.getAmount() == amount);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid amount format.");
+            }
+        }
+        stream.toList().forEach(System.out::println);
+    }
+
+    public static List<Transaction> getByDates(LocalDate start, LocalDate end) throws FileNotFoundException {
+        ArrayList<Transaction> transactions = new ArrayList<Transaction>();
+
+        //use getFileReader() to get us a buffered reader for inventory.csv
+        BufferedReader bufReader = new BufferedReader(new FileReader("src/main/resources/transactions.csv"));
+
+        //read the file line by line
+        try {
+
+            String line;
+            while ((line = bufReader.readLine()) != null) {
+                //split the line into the individual product parts
+                String[] transactionParts = line.split("\\|");
+                //generate a new product using the correct data types for the product attributes
+                LocalDate date = LocalDate.parse(transactionParts[0].trim());
+                LocalTime time = LocalTime.parse(transactionParts[1].trim());
+                String description = transactionParts[2].trim();
+                String name = transactionParts[3].trim();
+                double amount = Double.parseDouble(transactionParts[4]);
+                if (date.isEqual(start) || date.isEqual(end) || date.isAfter(start) || date.isBefore(end)) {
+                    Transaction newTransaction = new Transaction(date, time, description, name, amount);
+
+
+                    //add the product to our inventory ArrayList
+                    transactions.add(newTransaction);
+                }
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return transactions;
+    }
+
+
     private static void searchByVendor() {
+
         System.out.print("Enter vendor name to search: ");
         String vendor = scanner.nextLine().toLowerCase();
 
@@ -245,13 +347,21 @@ public class AccountingLedger {
         try (BufferedReader reader = new BufferedReader(new FileReader("src/main/resources/transactions.csv"))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.toLowerCase().contains("|" + vendor + "|")) {
+                String[] splitLine = line.split("\\|");
+                if (splitLine[3].toLowerCase().contains(vendor)) {
                     System.out.println(line);
+                    //fuzzy search
                 }
             }
         } catch (IOException e) {
             System.out.println("Error reading file.");
         }
+
+
+    }
+
+    public static double calculateBalance(List<Transaction> list){
+        return list.stream().mapToDouble(Transaction::getAmount).sum();
 
     }
 
